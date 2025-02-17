@@ -2,15 +2,22 @@
 # -*- coding: utf-8 -*-
 
 import json
-from waflib import Task, Logs
 
-#---------------------------------------------------------------------#
-def options(opt):
+from waflib import Task, Logs
+from waflib.Build import BuildContext
+from waflib.Configure import ConfigurationContext
+from waflib.Options import OptionsContext
+from waflib.Task import Task as WTask
+
+
+# ---------------------------------------------------------------------#
+def options(opt: OptionsContext) -> None:
     """
     Define custom command-line options here if needed.
     """
     # 1) Load standard compiler flags into the Waf command-line system
-    opt.load('compiler_cxx')
+    opt.load("compiler_cxx")
+    opt.load("pkgconfig")
 
     # 2) Define your own option
     # opt.add_option('--use-clang', action='store_true', default=False,
@@ -19,44 +26,53 @@ def options(opt):
     # if conf.options.use_clang:
     #   pass
 
-#---------------------------------------------------------------------#
-def configure(conf):
+
+# ---------------------------------------------------------------------#
+def configure(conf: ConfigurationContext) -> None:
     """
     Configure checks (e.g., find compilers, libraries).
     """
     # Force use of clang++
-    conf.find_program('clang++', var='CXX')
+    conf.find_program("clang++", var="CXX")
 
     # 1) Detect the default compiler
-    conf.load('compiler_cxx')
+    conf.load("compiler_cxx")
+    conf.load("pkgconfig")
+
+    # This will add -I/usr/include/eigen3 (and no libs, since it's header-only).
+    conf.check_cfg(
+        package="eigen3", uselib_store="EIGEN3", args="--cflags --libs", mandatory=True
+    )
 
     # 2) Now override with clang++
-    conf.env.CXX = 'clang++'
-    conf.env.CXX_NAME = 'clang++'  # Make sure the 'command' field becomes clang++
-    conf.env.CXXFLAGS += ['-std=c++17', '-Wall']
+    conf.env.CXX = "clang++"
+    conf.env.CXX_NAME = "clang++"  # Make sure the 'command' field becomes clang++
+    conf.env.CXXFLAGS += ["-std=c++17", "-Wall"]
 
 
-#---------------------------------------------------------------------#
-def build(bld):
+# ---------------------------------------------------------------------#
+def build(bld: BuildContext) -> None:
     """
     Build tasks for the internal library and the main program.
     """
-    # 1) Build the static library from `MyLib.cpp`.
-    #    We name the target 'MyLib' to reference it later.
-    bld.stlib(
-        source = 'src/lib/MyLib.cpp',
-        target = 'lib',
-        includes = ['src/lib']  # so #include "MyLib.h" is found
-    )
-    # 2) Build the main program linking against 'MyLib'.
+    # mpc static lib
+    mpc_sources = bld.path.ant_glob("src/mpc/*.cpp")
+    bld.stlib(source=mpc_sources, target="mpc", includes=["include"], use=["EIGEN3"])
+
+    # src
+    itl_sources = bld.path.ant_glob("src/itl/*.cpp")
     bld.program(
-        source = 'src/main.cpp',
-        target = 'my_program',
-        includes = ['src/lib'],  # look for headers in src/lib
-        use = 'lib'            # link with the 'MyLib' static library
+        source=itl_sources, target="itl", includes=["include"], use=["mpc", "EIGEN3"]
     )
-    # Write compile_commands.json to your build folder
-    # bld.write_compilation_database()
+
+    # Optionally gather more .cpp from deeper subdirectories, for example:
+    # bld.path.ant_glob('src/mpc/**/*.cpp')
+    # bld.path.ant_glob('src/itl/**/*.cpp')
+
+    # all_cpp = bld.path.ant_glob('src/mpc/**/*.cpp')
+    # Filter out anything named *_test.cpp
+    # mpc_sources = [f for f in all_cpp if not f.name.endswith('_test.cpp')]
+
     # Attach a custom function to run after build
     bld.add_post_fun(generate_compilation_db)
 
@@ -67,7 +83,7 @@ def build(bld):
     Logs.info(f"bld.srcnode = {bld.srcnode.abspath()}")
 
 
-#---------------------------------------------------------------------#
+# ---------------------------------------------------------------------#
 # How This Works
 #
 # 1.) bld.program or bld.stlib creates:
@@ -81,13 +97,17 @@ def build(bld):
 # - A link task with .compiled_tasks: we iterate through those compiled tasks to get the real commands.
 # - If it’s something else (e.g. a custom packaging task, or something that doesn’t compile code), we skip it.
 # record_commands_for_task does the actual generation logic. This keeps your code DRY and handles both C and C++ tasks.
-
-def is_compile_task(t):
+def is_compile_task(t: WTask) -> bool:
     """Return True if 't' is a c or cxx compile task."""
-    return isinstance(t, Task.classes.get('c')) or isinstance(t, Task.classes.get('cxx'))
+    c_class = Task.classes.get("c")
+    cxx_class = Task.classes.get("cxx")
+
+    return (c_class and isinstance(t, c_class)) or (
+        cxx_class and isinstance(t, cxx_class)
+    )
 
 
-def generate_compilation_db(bld):
+def generate_compilation_db(bld: BuildContext) -> None:
     """
     Gathers compilation commands from C/C++ tasks
     (including those referenced by link tasks) and writes compile_commands.json.
@@ -100,10 +120,10 @@ def generate_compilation_db(bld):
             #    handle it directly:
             if is_compile_task(task):
                 record_commands_for_task(task, bld, commands)
-            
+
             # 2) If this is a link task (like cxxprogram/cxxstlib/cxxshlib),
             #    it may reference one or more compile tasks in task.compiled_tasks:
-            elif hasattr(task, 'compiled_tasks'):
+            elif hasattr(task, "compiled_tasks"):
                 for ctask in task.compiled_tasks:
                     if is_compile_task(ctask):
                         record_commands_for_task(ctask, bld, commands)
@@ -112,41 +132,43 @@ def generate_compilation_db(bld):
     # out_file = bld.path.find_or_declare('compile_commands.json').abspath()
 
     # Write compile_commands.json
-    out_file = bld.path.make_node('compile_commands.json').abspath()
-    with open(out_file, 'w') as f:
+    out_file = bld.path.make_node("compile_commands.json").abspath()
+    with open(out_file, "w") as f:
         json.dump(commands, f, indent=2)
 
     Logs.info(f"Wrote compile_commands.json to {out_file}")
 
 
-def record_commands_for_task(task, bld, commands):
+def record_commands_for_task(task: WTask, bld: BuildContext, commands: list) -> None:
     """
     Given a single compile task (cxx or c), extract the command line for each source.
     """
     # Determine if this is C or C++
-    if isinstance(task, Task.classes.get('cxx')):
-        compiler = task.env.CXX_NAME or (task.env.CXX and task.env.CXX[0]) or 'c++'
-        flags    = task.env.CXXFLAGS
+    if isinstance(task, Task.classes.get("cxx")):
+        compiler = task.env.CXX_NAME or (task.env.CXX and task.env.CXX[0]) or "c++"
+        flags = task.env.CXXFLAGS
     else:
-        compiler = task.env.CC_NAME or (task.env.CC and task.env.CC[0]) or 'cc'
-        flags    = task.env.CFLAGS
+        compiler = task.env.CC_NAME or (task.env.CC and task.env.CC[0]) or "cc"
+        flags = task.env.CFLAGS
 
     command = [compiler] + flags
 
-
-    incs = [f'-I{inc}' for inc in task.env.INCLUDES]
-    defs = [f'-D{d}' for d in task.env.DEFINES]
+    incs = [f"-I{inc}" for inc in task.env.INCLUDES]
+    defs = [f"-D{d}" for d in task.env.DEFINES]
     command += incs + defs
 
     # For each source file, create an entry
     for idx, src in enumerate(task.inputs):
         output = task.outputs[idx]
-        cmd_list = command + ['-c', src.abspath(), '-o', output.abspath()]
+        cmd_list = command + ["-c", src.abspath(), "-o", output.abspath()]
 
-        commands.append({
-            'directory': bld.path.abspath(),
-            'command':   ' '.join(cmd_list),
-            'file':      src.abspath()
-        })
+        commands.append(
+            {
+                "directory": bld.path.abspath(),
+                "command": " ".join(cmd_list),
+                "file": src.abspath(),
+            }
+        )
 
-#---------------------------------------------------------------------#
+
+# ---------------------------------------------------------------------#

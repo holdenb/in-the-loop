@@ -2,4 +2,5 @@ build/*
 .cache/*
 .lock-*
 .waf*
+waflib
 compile_commands.*
