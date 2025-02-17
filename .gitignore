@@ -1,0 +1,5 @@
+build/*
+.cache/*
+.lock-*
+.waf*
+compile_commands.*
