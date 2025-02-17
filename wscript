@@ -3,7 +3,7 @@
 
 import json
 
-from waflib import Task, Logs
+from waflib import Logs, Task
 from waflib.Build import BuildContext
 from waflib.Configure import ConfigurationContext
 from waflib.Options import OptionsContext
@@ -47,7 +47,7 @@ def configure(conf: ConfigurationContext) -> None:
     # 2) Now override with clang++
     conf.env.CXX = "clang++"
     conf.env.CXX_NAME = "clang++"  # Make sure the 'command' field becomes clang++
-    conf.env.CXXFLAGS += ["-std=c++17", "-Wall"]
+    conf.env.CXXFLAGS += ["-std=c++20", "-Wall"]
 
 
 # ---------------------------------------------------------------------#
@@ -56,13 +56,16 @@ def build(bld: BuildContext) -> None:
     Build tasks for the internal library and the main program.
     """
     # mpc static lib
-    mpc_sources = bld.path.ant_glob("src/mpc/*.cpp")
-    bld.stlib(source=mpc_sources, target="mpc", includes=["include"], use=["EIGEN3"])
+    mpc_sources = bld.path.ant_glob("src/itl/*.cpp")
+    bld.stlib(source=mpc_sources, target="itl", includes=["include"], use=["EIGEN3"])
 
     # src
-    itl_sources = bld.path.ant_glob("src/itl/*.cpp")
+    itl_sources = bld.path.ant_glob("src/itl_sim/*.cpp")
     bld.program(
-        source=itl_sources, target="itl", includes=["include"], use=["mpc", "EIGEN3"]
+        source=itl_sources,
+        target="itl_sim",
+        includes=["include"],
+        use=["itl", "EIGEN3"],
     )
 
     # Optionally gather more .cpp from deeper subdirectories, for example:

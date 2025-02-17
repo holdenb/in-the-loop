@@ -1,10 +1,10 @@
-#include "mpc/controller.h"
+#include "itl/controller.h"
 
-namespace mpc
+namespace itl
 {
 std::string getGreeting(const std::string & name)
 {
   return "Hello, " + name + "! Welcome from mylib.";
 }
 
-}  // namespace mpc
+}  // namespace itl

@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace mpc
+namespace itl
 {
 std::string getGreeting(const std::string & name);
 
