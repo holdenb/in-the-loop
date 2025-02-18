@@ -3,7 +3,7 @@
 #include "itl/controller.h"
 
 //---------------------------------------------------------------------//
-void logCurrentState(itl::State_t const & curr_state)
+void logCurrentState(itl::State const & curr_state)
 {
   std::cout << "Current state: x=" << curr_state.x << ", y=" << curr_state.y
             << ", theta=" << curr_state.theta << ", v=" << curr_state.v
@@ -15,12 +15,12 @@ int main(int argc, const char ** argv)
 {
   // Run MPC simulation
   // x_k+1 (state vector at time step k i.e. pos/velocity/etc.)
-  itl::State_t curr_state{};
-  const std::vector<itl::State_t> ref_traj = {
+  itl::State curr_state{};
+  const std::vector<itl::State> ref_traj = {
       {1, 1, 0, 1}, {2, 2, 0, 1}, {3, 3, 0, 1}  // Some predefined trajectory
   };
 
-  auto controller = itl::Controller_t();
+  auto controller = itl::Controller();
 
   double dt = 0.1;
   for (const auto & ref_state : ref_traj)
@@ -30,7 +30,7 @@ int main(int argc, const char ** argv)
     // i.e. accel/heading angle/etc.
     // f also represents the "system dynamics" (can either be linear or a
     // non-linear function)
-    itl::ControlInput_t optimal_control =
+    itl::ControlInput optimal_control =
         controller.optimize_control_inputs(curr_state, ref_state, dt);
     curr_state = controller.update(curr_state, optimal_control, dt);
 

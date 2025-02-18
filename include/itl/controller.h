@@ -5,7 +5,7 @@
 namespace itl
 {
 
-struct State_t
+struct State
 {
   double x;
   double y;
@@ -13,25 +13,25 @@ struct State_t
   double v;
 };
 
-struct ControlInput_t
+struct ControlInput
 {
   double accel;
   double steering_angle;
 };
 
-class Controller_t
+class Controller
 {
 public:
-  ~Controller_t();
-  Controller_t();
+  ~Controller() = default;
+  Controller() = default;
 
-  ControlInput_t optimize_control_inputs(const State_t & current_state,
-                                         const State_t & reference_state,
-                                         double dt);
+  ControlInput optimize_control_inputs(const State & current_state,
+                                       const State & reference_state,
+                                       double dt);
 
-  State_t update(const State_t & current_state,
-                 ControlInput_t const & input,
-                 double dt);
+  State update(const State & current_state,
+               ControlInput const & input,
+               double dt);
 
   Eigen::VectorXd update(const Eigen::VectorXd & current_state,
                          const Eigen::VectorXd & control_input,
@@ -43,15 +43,15 @@ public:
                                Eigen::MatrixXd R);
 
 private:
-  double calculate_cost(const State_t & current_state,
-                        const State_t & reference_state,
-                        const ControlInput_t & input);
+  double calculate_cost(const State & current_state,
+                        const State & reference_state,
+                        const ControlInput & input);
 
   double calculate_cost(const Eigen::VectorXd & current_state,
                         const Eigen::VectorXd & reference_state,
                         const Eigen::VectorXd & control_input);
 
-  bool within_constraints(const ControlInput_t & input);
+  bool within_constraints(const ControlInput & input);
 };
 
 }  // namespace itl

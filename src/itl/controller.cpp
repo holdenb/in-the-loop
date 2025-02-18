@@ -1,4 +1,4 @@
-#include "itl/controller.h"
+#include "controller.h"
 
 #include <math.h>
 
@@ -21,14 +21,11 @@ const double MAX_ACCEL = 2.0;                // m/s^2
 namespace itl
 {
 
-Controller_t::~Controller_t() = default;
-Controller_t::Controller_t() {}
-
-State_t Controller_t::update(const State_t & current_state,
-                             ControlInput_t const & input,
-                             double dt)
+State Controller::update(const State & current_state,
+                         ControlInput const & input,
+                         double dt)
 {
-  State_t new_state;
+  State new_state;
 
   new_state.x =
       current_state.x + current_state.v * std::cos(current_state.theta) * dt;
@@ -41,9 +38,9 @@ State_t Controller_t::update(const State_t & current_state,
   return new_state;
 }
 
-Eigen::VectorXd Controller_t::update(const Eigen::VectorXd & current_state,
-                                     const Eigen::VectorXd & control_input,
-                                     double dt)
+Eigen::VectorXd Controller::update(const Eigen::VectorXd & current_state,
+                                   const Eigen::VectorXd & control_input,
+                                   double dt)
 {
   // Assuming:
   // -    state is a 4x1 vector [x, y, theta, v]
@@ -68,25 +65,25 @@ Eigen::VectorXd Controller_t::update(const Eigen::VectorXd & current_state,
   return new_state;
 }
 
-ControlInput_t Controller_t::optimize_control_inputs(
-    const State_t & current_state, const State_t & reference_state, double dt)
+ControlInput Controller::optimize_control_inputs(const State & current_state,
+                                                 const State & reference_state,
+                                                 double dt)
 {
   // Basic brute force search optimization over a grid of control inputs.
   // A more complex approach would be to use gradient descent, etc.
   double best_cost = std::numeric_limits<double>::max();
-  ControlInput_t best_input;
+  ControlInput best_input;
 
   // Grid search for control inputs
   for (double acc = -2.0; acc <= 2.0; acc += 0.1)
   {
     for (double steering = -M_PI / 4; steering <= M_PI / 4; steering += 0.1)
     {
-      const ControlInput_t candidate_input{acc, steering};
+      const ControlInput candidate_input{acc, steering};
       if (!within_constraints(candidate_input)) continue;
 
       // Simulate system forward in time
-      const State_t predicted_state =
-          update(current_state, candidate_input, dt);
+      const State predicted_state = update(current_state, candidate_input, dt);
       const double cost =
           calculate_cost(predicted_state, reference_state, candidate_input);
 
@@ -101,9 +98,9 @@ ControlInput_t Controller_t::optimize_control_inputs(
   return best_input;
 }
 
-double Controller_t::calculate_cost(const State_t & current_state,
-                                    const State_t & reference_state,
-                                    const ControlInput_t & input)
+double Controller::calculate_cost(const State & current_state,
+                                  const State & reference_state,
+                                  const ControlInput & input)
 {
   const double position_error = std::hypot(
       reference_state.x - current_state.x, reference_state.y, current_state.y);
@@ -119,9 +116,9 @@ double Controller_t::calculate_cost(const State_t & current_state,
          WEIGHT_CONTROL_EFFORT * control_effort;
 }
 
-double Controller_t::calculate_cost(const Eigen::VectorXd & current_state,
-                                    const Eigen::VectorXd & reference_state,
-                                    const Eigen::VectorXd & control_input)
+double Controller::calculate_cost(const Eigen::VectorXd & current_state,
+                                  const Eigen::VectorXd & reference_state,
+                                  const Eigen::VectorXd & control_input)
 {
   Eigen::VectorXd state_error = reference_state - current_state;
 
@@ -137,10 +134,10 @@ double Controller_t::calculate_cost(const Eigen::VectorXd & current_state,
          WEIGHT_CONTROL_EFFORT * control_effort;
 }
 
-double Controller_t::calculate_cost_matrix(Eigen::VectorXd state_error,
-                                           Eigen::VectorXd control_input,
-                                           Eigen::MatrixXd Q,
-                                           Eigen::MatrixXd R)
+double Controller::calculate_cost_matrix(Eigen::VectorXd state_error,
+                                         Eigen::VectorXd control_input,
+                                         Eigen::MatrixXd Q,
+                                         Eigen::MatrixXd R)
 {
   // Quadratic cost: J = state_error^T Q state_error + control_input^T R
   // control_input Q is a positive semi-definite matrix that penalizes
@@ -156,7 +153,7 @@ double Controller_t::calculate_cost_matrix(Eigen::VectorXd state_error,
   return state_error_penalty + control_effort_penalty;
 }
 
-bool Controller_t::within_constraints(const ControlInput_t & input)
+bool Controller::within_constraints(const ControlInput & input)
 {
   if (std::fabs(input.steering_angle) > MAX_STEERING_ANGLE) return false;
   if (std::fabs(input.accel) > MAX_ACCEL) return false;

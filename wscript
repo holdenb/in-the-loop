@@ -41,7 +41,10 @@ def configure(conf: ConfigurationContext) -> None:
 
     # This will add -I/usr/include/eigen3 (and no libs, since it's header-only).
     conf.check_cfg(
-        package="eigen3", uselib_store="EIGEN3", args="--cflags --libs", mandatory=True
+        package="eigen3",
+        uselib_store="EIGEN3",
+        args="--cflags --libs",
+        mandatory=True,
     )
 
     # 2) Now override with clang++
@@ -56,15 +59,22 @@ def build(bld: BuildContext) -> None:
     Build tasks for the internal library and the main program.
     """
     # mpc static lib
+    itl_includes_abs = bld.path.find_node("include/itl").abspath()
     mpc_sources = bld.path.ant_glob("src/itl/*.cpp")
-    bld.stlib(source=mpc_sources, target="itl", includes=["include"], use=["EIGEN3"])
+    bld.stlib(
+        source=mpc_sources,
+        target="itl",
+        includes=[itl_includes_abs],
+        use=["EIGEN3"],
+    )
 
     # src
-    itl_sources = bld.path.ant_glob("src/itl_sim/*.cpp")
+    includes_abs = bld.path.find_node("include").abspath()
+    itl_sim_sources = bld.path.ant_glob("src/itl_sim/*.cpp")
     bld.program(
-        source=itl_sources,
+        source=itl_sim_sources,
         target="itl_sim",
-        includes=["include"],
+        includes=[includes_abs],
         use=["itl", "EIGEN3"],
     )
 
@@ -135,7 +145,7 @@ def generate_compilation_db(bld: BuildContext) -> None:
     # out_file = bld.path.find_or_declare('compile_commands.json').abspath()
 
     # Write compile_commands.json
-    out_file = bld.path.make_node("compile_commands.json").abspath()
+    out_file = bld.bldnode.make_node("compile_commands.json").abspath()
     with open(out_file, "w") as f:
         json.dump(commands, f, indent=2)
 
@@ -167,7 +177,7 @@ def record_commands_for_task(task: WTask, bld: BuildContext, commands: list) -> 
 
         commands.append(
             {
-                "directory": bld.path.abspath(),
+                "directory": bld.bldnode.abspath(),
                 "command": " ".join(cmd_list),
                 "file": src.abspath(),
             }
