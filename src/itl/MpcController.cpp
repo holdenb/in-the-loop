@@ -1,29 +1,35 @@
-#include "controller.h"
+#include "MpcController.h"
 
 #include <math.h>
 
-//---------------------------------------------------------------------//
+//====================================================================//
 namespace
 {
 
 static const double WHEEL_BASE = 1.0;
+
 // Weights for different components of the cost function
 static const double WEIGHT_POS_ERROR = 1.0;
 static const double WEIGHT_HEADING_ERROR = 0.5;
 static const double WEIGHT_CONTROL_EFFORT = 0.1;
+
 // Constraints
 const double MAX_STEERING_ANGLE = M_PI / 4;  // 45 deg
 const double MAX_ACCEL = 2.0;                // m/s^2
 
 }  // namespace
 
-//---------------------------------------------------------------------//
+//====================================================================//
 namespace itl
 {
 
-State Controller::update(const State & current_state,
-                         ControlInput const & input,
-                         double dt)
+MpcController::~MpcController(){};
+MpcController::MpcController() : Controller(){};
+
+//====================================================================//
+State MpcController::update(const State & current_state,
+                            ControlInput const & input,
+                            double dt)
 {
   State new_state;
 
@@ -38,9 +44,9 @@ State Controller::update(const State & current_state,
   return new_state;
 }
 
-Eigen::VectorXd Controller::update(const Eigen::VectorXd & current_state,
-                                   const Eigen::VectorXd & control_input,
-                                   double dt)
+Eigen::VectorXd MpcController::update(const Eigen::VectorXd & current_state,
+                                      const Eigen::VectorXd & control_input,
+                                      double dt)
 {
   // Assuming:
   // -    state is a 4x1 vector [x, y, theta, v]
@@ -65,9 +71,8 @@ Eigen::VectorXd Controller::update(const Eigen::VectorXd & current_state,
   return new_state;
 }
 
-ControlInput Controller::optimize_control_inputs(const State & current_state,
-                                                 const State & reference_state,
-                                                 double dt)
+ControlInput MpcController::optimize_control_inputs(
+    const State & current_state, const State & reference_state, double dt)
 {
   // Basic brute force search optimization over a grid of control inputs.
   // A more complex approach would be to use gradient descent, etc.
@@ -98,9 +103,9 @@ ControlInput Controller::optimize_control_inputs(const State & current_state,
   return best_input;
 }
 
-double Controller::calculate_cost(const State & current_state,
-                                  const State & reference_state,
-                                  const ControlInput & input)
+double MpcController::calculate_cost(const State & current_state,
+                                     const State & reference_state,
+                                     const ControlInput & input)
 {
   const double position_error = std::hypot(
       reference_state.x - current_state.x, reference_state.y, current_state.y);
@@ -116,9 +121,9 @@ double Controller::calculate_cost(const State & current_state,
          WEIGHT_CONTROL_EFFORT * control_effort;
 }
 
-double Controller::calculate_cost(const Eigen::VectorXd & current_state,
-                                  const Eigen::VectorXd & reference_state,
-                                  const Eigen::VectorXd & control_input)
+double MpcController::calculate_cost(const Eigen::VectorXd & current_state,
+                                     const Eigen::VectorXd & reference_state,
+                                     const Eigen::VectorXd & control_input)
 {
   Eigen::VectorXd state_error = reference_state - current_state;
 
@@ -134,10 +139,10 @@ double Controller::calculate_cost(const Eigen::VectorXd & current_state,
          WEIGHT_CONTROL_EFFORT * control_effort;
 }
 
-double Controller::calculate_cost_matrix(Eigen::VectorXd state_error,
-                                         Eigen::VectorXd control_input,
-                                         Eigen::MatrixXd Q,
-                                         Eigen::MatrixXd R)
+double MpcController::calculate_cost_matrix(Eigen::VectorXd state_error,
+                                            Eigen::VectorXd control_input,
+                                            Eigen::MatrixXd Q,
+                                            Eigen::MatrixXd R)
 {
   // Quadratic cost: J = state_error^T Q state_error + control_input^T R
   // control_input Q is a positive semi-definite matrix that penalizes
@@ -153,7 +158,7 @@ double Controller::calculate_cost_matrix(Eigen::VectorXd state_error,
   return state_error_penalty + control_effort_penalty;
 }
 
-bool Controller::within_constraints(const ControlInput & input)
+bool MpcController::within_constraints(const ControlInput & input)
 {
   if (std::fabs(input.steering_angle) > MAX_STEERING_ANGLE) return false;
   if (std::fabs(input.accel) > MAX_ACCEL) return false;

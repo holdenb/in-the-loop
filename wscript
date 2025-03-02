@@ -49,7 +49,8 @@ def configure(conf: ConfigurationContext) -> None:
 
     # 2) Now override with clang++
     conf.env.CXX = "clang++"
-    conf.env.CXX_NAME = "clang++"  # Make sure the 'command' field becomes clang++
+    # Make sure the 'command' field becomes clang++
+    conf.env.CXX_NAME = "clang++"
     conf.env.CXXFLAGS += ["-std=c++20", "-Wall"]
 
 
@@ -58,24 +59,32 @@ def build(bld: BuildContext) -> None:
     """
     Build tasks for the internal library and the main program.
     """
-    # mpc static lib
+
+    util_includes_abs = bld.path.find_node("include/util").abspath()
+    util_sources = bld.path.ant_glob("src/util/*.cpp")
+    bld.stlib(
+        source=util_sources,
+        target="util",
+        includes=[util_includes_abs],
+        use=["EIGEN3"],
+    )
+
     itl_includes_abs = bld.path.find_node("include/itl").abspath()
     mpc_sources = bld.path.ant_glob("src/itl/*.cpp")
     bld.stlib(
         source=mpc_sources,
         target="itl",
-        includes=[itl_includes_abs],
-        use=["EIGEN3"],
+        includes=[itl_includes_abs, util_includes_abs],
+        use=["util", "EIGEN3"],
     )
 
-    # src
     includes_abs = bld.path.find_node("include").abspath()
-    itl_sim_sources = bld.path.ant_glob("src/itl_sim/*.cpp")
+    sim_sources = bld.path.ant_glob("src/sim/*.cpp")
     bld.program(
-        source=itl_sim_sources,
-        target="itl_sim",
-        includes=[includes_abs],
-        use=["itl", "EIGEN3"],
+        source=sim_sources,
+        target="sim",
+        includes=[includes_abs, util_includes_abs],
+        use=["util", "itl", "EIGEN3"],
     )
 
     # Optionally gather more .cpp from deeper subdirectories, for example:
