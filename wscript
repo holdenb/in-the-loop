@@ -79,11 +79,16 @@ def build(bld: BuildContext) -> None:
     )
 
     includes_abs = bld.path.find_node("include").abspath()
+    argparse_include = bld.path.find_node("external/argparse").abspath()
     sim_sources = bld.path.ant_glob("src/sim/*.cpp")
     bld.program(
         source=sim_sources,
         target="sim",
-        includes=[includes_abs, util_includes_abs],
+        includes=[
+            includes_abs,
+            util_includes_abs,
+            argparse_include,
+        ],
         use=["util", "itl", "EIGEN3"],
     )
 
@@ -103,6 +108,7 @@ def build(bld: BuildContext) -> None:
     Logs.info(f"bld.path    = {bld.path.abspath()}")
     Logs.info(f"bld.bldnode = {bld.bldnode.abspath()}")
     Logs.info(f"bld.srcnode = {bld.srcnode.abspath()}")
+    Logs.info(f"argparse_include = {argparse_include}")
 
 
 # ---------------------------------------------------------------------#

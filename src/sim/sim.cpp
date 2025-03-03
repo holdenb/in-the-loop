@@ -1,22 +1,44 @@
 #include "itl/MpcController.h"
 #include "itl/State.h"
 
+#include "util/Logger.h"
+
+#include "argparse.hpp"
+
 #include <Eigen/Dense>
 
+#include <getopt.h>
+
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <vector>
+#include <string>
 
 using namespace itl;
+using namespace util;
+
+#define SIM_VERSION "1.0.0"
 
 //====================================================================//
 namespace
 {
 
-void logCurrentState(State const & curr_state)
+std::string fmtCurrentState(State const & curr_state)
 {
-  std::cout << "Current state: x=" << curr_state.x << ", y=" << curr_state.y
-            << ", theta=" << curr_state.theta << ", v=" << curr_state.v
-            << std::endl;
+  std::ostringstream log_stream;
+  log_stream << "Current state: x=" << curr_state.x << ", y=" << curr_state.y
+             << ", theta=" << curr_state.theta << ", v=" << curr_state.v;
+
+  return log_stream.str();
+}
+
+std::string fmtCost(double cost)
+{
+  std::ostringstream log_stream;
+  log_stream << "Cost with matrices: " << cost;
+
+  return log_stream.str();
 }
 
 }  // namespace
@@ -24,71 +46,39 @@ void logCurrentState(State const & curr_state)
 //====================================================================//
 int main(int argc, const char ** argv)
 {
-  // std::optional<int> seed = std::nullopt;
-  // int num_players = DEFAULT_NUM_PLAYERS;
-  // int num_rounds = DEFAULT_NUM_ROUNDS;
-  //
-  // struct option long_options[] = {{"players", required_argument, 0, 'p'},
-  //                                 {"rounds", required_argument, 0, 'r'},
-  //                                 {"seed", required_argument, 0, 's'},
-  //                                 {"help", no_argument, 0, 'h'},
-  //                                 {0, 0, 0, 0}};
-  //
-  // int opt;
-  // int option_index = 0;
-  // while ((opt = getopt_long(
-  //             _argc, _argv, "p:r:s:h", long_options, &option_index)) != -1)
-  // {
-  //   switch (opt)
-  //   {
-  //     case 'p':
-  //       num_players = std::stoi(optarg);
-  //       if (num_players <= 0 || num_players > MAX_NUM_PLAYERS)
-  //       {
-  //         std::cerr << "Number of players must be a positive integer "
-  //                      "and no more than "
-  //                   << MAX_NUM_PLAYERS << ".\n";
-  //         return EXIT_FAILURE;
-  //       }
-  //       break;
-  //     case 'r':
-  //       num_rounds = std::stoi(optarg);
-  //       if (num_rounds <= 0 || num_rounds > MAX_NUM_ROUNDS)
-  //       {
-  //         std::cerr << "Number of rounds must be a positive integer "
-  //                      "and no more than "
-  //                   << MAX_NUM_ROUNDS << ".\n";
-  //         return EXIT_FAILURE;
-  //       }
-  //       break;
-  //     case 's':
-  //       seed = std::stoi(optarg);
-  //       if (seed <= 0 || seed > MAX_SEED)
-  //       {
-  //         std::cerr << "Seed value must be a positive integer and no "
-  //                      "more than "
-  //                   << MAX_SEED << ".\n";
-  //         return EXIT_FAILURE;
-  //       }
-  //       break;
-  //     case 'h':
-  //       std::cout << "Usage: " << _argv[0] << " [options]\n"
-  //                 << "Options:\n"
-  //                 << "  -p, --players [num]  Set the number of players (1-"
-  //                 << MAX_NUM_PLAYERS << ", default: " << DEFAULT_NUM_PLAYERS
-  //                 << ")\n"
-  //                 << "  -r, --rounds [num]   Set the number of rounds (1-"
-  //                 << MAX_NUM_ROUNDS << ", default: " << DEFAULT_NUM_ROUNDS
-  //                 << ")\n"
-  //                 << "  -s, --seed [num]     Set the seed value for "
-  //                    "randomization\n"
-  //                 << "  -h, --help           Show this help message\n";
-  //       return EXIT_SUCCESS;
-  //     default:
-  //       std::cerr << "Use --help to see available options.\n";
-  //       return EXIT_FAILURE;
-  //   }
-  // }
+  argparse::ArgumentParser program("ITL Simulator", SIM_VERSION);
+
+  program.add_argument("--verbose")
+      .help("enable verbose mode")
+      .default_value(false)
+      .implicit_value(true);
+
+  try
+  {
+    program.parse_args(argc, argv);
+    if (program.get<bool>("--help"))
+    {
+      std::cout << program;
+      return EXIT_SUCCESS;
+    }
+    if (program.get<bool>("--version"))
+    {
+      std::cout << "ITL Simulator Version: " << SIM_VERSION << std::endl;
+      return EXIT_SUCCESS;
+    }
+
+    bool verbose = program.get<bool>("--verbose");
+    std::cout << "Verbose mode: " << (verbose ? "ON" : "OFF") << std::endl;
+  }
+  catch (const std::exception & e)
+  {
+    std::cerr << "Error: " << e.what() << std::endl;
+    std::cerr << "Use --help for more information.\n";
+    return EXIT_FAILURE;
+  }
+
+  // TODO: Set verbose flag on logger
+  auto log = std::make_unique<Logger>();
 
   // Run MPC simulation
   // x_k+1 (state vector at time step k i.e. pos/velocity/etc.)
@@ -109,15 +99,17 @@ int main(int argc, const char ** argv)
     // non-linear function)
     ControlInput optimal_control =
         controller.optimize_control_inputs(curr_state, ref_state, dt);
+
     curr_state = controller.update(curr_state, optimal_control, dt);
 
-    logCurrentState(curr_state);
+    log->debug(fmtCurrentState(curr_state));
   }
 
   // Example of calculating cost with Q & R (quadratic) weight matrices
   Eigen::MatrixXd Q(4, 4);
   Q << 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0,
-      0.0, 0.1;  // Weights for state error
+      0.0,
+      0.1;  // Weights for state error
 
   Eigen::MatrixXd R(2, 2);
   R << 0.1, 0.0, 0.0, 0.1;  // Weights for control effort
@@ -127,7 +119,8 @@ int main(int argc, const char ** argv)
 
   const double cost =
       controller.calculate_cost_matrix(state_error, control_input, Q, R);
-  std::cout << "Cost with matrices: " << cost << std::endl;
+
+  log->debug(fmtCost(cost));
 
   return EXIT_SUCCESS;
 }
