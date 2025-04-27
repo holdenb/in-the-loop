@@ -5,13 +5,23 @@
 namespace sim
 {
 
+/**
+ * @class MpcSimulation
+ * @brief
+ *
+ */
 class MpcSimulation : public Simulation
 {
 public:
-  ~MpcSimulation();
-  MpcSimulation();
+  ~MpcSimulation() = default;
+  MpcSimulation() = default;
 
-  virtual void update(double dt) = 0;
+  /**
+   * @brief
+   *
+   * @param dt
+   */
+  void update(double dt) override;
 };
 
 }  // namespace sim

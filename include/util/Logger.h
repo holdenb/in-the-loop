@@ -9,16 +9,45 @@
 namespace util
 {
 
+/**
+ * @class ILogger
+ * @brief
+ *
+ */
 class ILogger
 {
 public:
   virtual ~ILogger() = default;
+
+  /**
+   * @brief
+   *
+   * @param message
+   */
   virtual void debug(std::string_view message) = 0;
+  /**
+   * @brief
+   *
+   * @param message
+   */
   virtual void info(std::string_view message) = 0;
+  /**
+   * @brief
+   *
+   * @param message
+   */
   virtual void warning(std::string_view message) = 0;
+  /**
+   * @brief
+   *
+   * @param message
+   */
   virtual void error(std::string_view message) = 0;
 
 protected:
+  /**
+   * @brief
+   */
   enum class LogLevel
   {
     DEBUG,
@@ -27,6 +56,12 @@ protected:
     ERROR
   };
 
+  /**
+   * @brief
+   *
+   * @param log_level
+   * @return
+   */
   std::string toString(LogLevel log_level)
   {
     std::string ret;
@@ -43,23 +78,29 @@ protected:
   }
 };
 
-//====================================================================//
+//====================================================================================//
 class NoOpLogger : public ILogger
 {
 public:
+  ~NoOpLogger() = default;
   NoOpLogger() = default;
+
   void debug(std::string_view _) override { return; }
   void info(std::string_view _) override { return; }
   void warning(std::string_view _) override { return; }
   void error(std::string_view _) override { return; }
 };
 
-//====================================================================//
+//====================================================================================//
 class Logger : public ILogger
 {
 public:
+  ~Logger() = default;
+  Logger(bool verbose = false) : m_verbose(verbose){};
+
   virtual void debug(std::string_view message) override
   {
+    if (!m_verbose) return;
     _log(message, LogLevel::DEBUG);
   }
 
@@ -96,6 +137,8 @@ private:
     std::cout << "[" << std::put_time(&time_info, "%Y-%m-%d %H:%M:%S") << "]["
               << toString(log_level) << "] " << message << std::endl;
   };
+
+  bool m_verbose;
 };
 
 }  // namespace util

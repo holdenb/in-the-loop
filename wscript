@@ -10,7 +10,7 @@ from waflib.Options import OptionsContext
 from waflib.Task import Task as WTask
 
 
-# ---------------------------------------------------------------------#
+# -------------------------------------------------------------------------------------#
 def options(opt: OptionsContext) -> None:
     """
     Define custom command-line options here if needed.
@@ -27,7 +27,7 @@ def options(opt: OptionsContext) -> None:
     #   pass
 
 
-# ---------------------------------------------------------------------#
+# -------------------------------------------------------------------------------------#
 def configure(conf: ConfigurationContext) -> None:
     """
     Configure checks (e.g., find compilers, libraries).
@@ -54,7 +54,7 @@ def configure(conf: ConfigurationContext) -> None:
     conf.env.CXXFLAGS += ["-std=c++20", "-Wall"]
 
 
-# ---------------------------------------------------------------------#
+# -------------------------------------------------------------------------------------#
 def build(bld: BuildContext) -> None:
     """
     Build tasks for the internal library and the main program.
@@ -111,7 +111,7 @@ def build(bld: BuildContext) -> None:
     Logs.info(f"argparse_include = {argparse_include}")
 
 
-# ---------------------------------------------------------------------#
+# -------------------------------------------------------------------------------------#
 # How This Works
 #
 # 1.) bld.program or bld.stlib creates:

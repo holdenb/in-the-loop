@@ -3,9 +3,9 @@
 namespace sim
 {
 
-MpcSimulation::~MpcSimulation(){};
-MpcSimulation::MpcSimulation() : Simulation(){};
-
-void update(double dt) {}
+void MpcSimulation::update(double dt)
+{
+  // TODO:
+}
 
 }  // namespace sim

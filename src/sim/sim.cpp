@@ -1,6 +1,5 @@
 #include "itl/MpcController.h"
 #include "itl/State.h"
-
 #include "util/Logger.h"
 
 #include "argparse.hpp"
@@ -15,81 +14,100 @@
 #include <vector>
 #include <string>
 
-using namespace itl;
-using namespace util;
+using namespace std::string_literals;
 
-#define SIM_VERSION "1.0.0"
+#define SIM_VERSION "1.0.0"s
 
-//====================================================================//
+//====================================================================================//
 namespace
 {
 
-std::string fmtCurrentState(State const & curr_state)
+using namespace itl;
+using namespace util;
+
+struct Args
 {
-  std::ostringstream log_stream;
-  log_stream << "Current state: x=" << curr_state.x << ", y=" << curr_state.y
-             << ", theta=" << curr_state.theta << ", v=" << curr_state.v;
+  bool early_exit_succ;
+  bool early_exit_fail;
+  bool verbose;
+};
 
-  return log_stream.str();
-}
-
-std::string fmtCost(double cost)
+Args parse_args(int argc, const char ** argv)
 {
-  std::ostringstream log_stream;
-  log_stream << "Cost with matrices: " << cost;
-
-  return log_stream.str();
-}
-
-}  // namespace
-
-//====================================================================//
-int main(int argc, const char ** argv)
-{
-  argparse::ArgumentParser program("ITL Simulator", SIM_VERSION);
-
-  program.add_argument("--verbose")
-      .help("enable verbose mode")
+  argparse::ArgumentParser program("ITL Simulator"s, SIM_VERSION);
+  program.add_argument("--verbose"s)
+      .help("enable verbose mode"s)
       .default_value(false)
       .implicit_value(true);
 
   try
   {
     program.parse_args(argc, argv);
-    if (program.get<bool>("--help"))
+    if (program.get<bool>("--help"s))
     {
       std::cout << program;
-      return EXIT_SUCCESS;
+      return Args{.early_exit_succ = true};
     }
-    if (program.get<bool>("--version"))
+    if (program.get<bool>("--version"s))
     {
-      std::cout << "ITL Simulator Version: " << SIM_VERSION << std::endl;
-      return EXIT_SUCCESS;
+      std::cout << "ITL Simulator Version: "s << SIM_VERSION << std::endl;
+      return Args{.early_exit_succ = true};
     }
 
-    bool verbose = program.get<bool>("--verbose");
-    std::cout << "Verbose mode: " << (verbose ? "ON" : "OFF") << std::endl;
+    const bool verbose = program.get<bool>("--verbose"s);
+    std::cout << "Verbose mode: "s << (verbose ? "ON"s : "OFF"s) << std::endl;
+
+    return Args{.verbose = verbose};
   }
   catch (const std::exception & e)
   {
-    std::cerr << "Error: " << e.what() << std::endl;
-    std::cerr << "Use --help for more information.\n";
-    return EXIT_FAILURE;
+    std::cerr << "Error: "s << e.what() << std::endl;
+    std::cerr << "Use --help for more information.\n"s;
+    return Args{.early_exit_fail = true};
   }
+}
 
-  // TODO: Set verbose flag on logger
-  auto log = std::make_unique<Logger>();
+std::string fmt_current_state(const State & curr_state)
+{
+  std::ostringstream log_stream;
+  log_stream << "Current state: x="s << curr_state.x << ", y="s << curr_state.y
+             << ", theta="s << curr_state.theta << ", v="s << curr_state.v;
+
+  return log_stream.str();
+}
+
+std::string fmt_cost(double cost)
+{
+  std::ostringstream log_stream;
+  log_stream << "Cost with matrices: "s << cost;
+
+  return log_stream.str();
+}
+
+}  // namespace
+
+//====================================================================================//
+int main(int argc, const char ** argv)
+{
+  const Args args = parse_args(argc, argv);
+  if (args.early_exit_succ) return EXIT_SUCCESS;
+  if (args.early_exit_fail) return EXIT_FAILURE;
+
+  auto log = std::make_shared<Logger>(args.verbose);
+  log->info("Simulation Starting."s);
 
   // Run MPC simulation
   // x_k+1 (state vector at time step k i.e. pos/velocity/etc.)
   State curr_state{};
   const std::vector<State> ref_traj = {
-      {1, 1, 0, 1}, {2, 2, 0, 1}, {3, 3, 0, 1}  // Some predefined trajectory
+      {1, 1, 0, 1},
+      {2, 2, 0, 1},  // Some predefined trajectory
+      {3, 3, 0, 1},
   };
 
-  auto controller = MpcController();
+  const auto controller = MpcController().attach_logger(log);
 
-  double dt = 0.1;
+  const double dt = 0.1;
   for (const auto & ref_state : ref_traj)
   {
     // Controller f(x_k, u_k) where f = update(optimize(x_k, u_k))
@@ -102,17 +120,19 @@ int main(int argc, const char ** argv)
 
     curr_state = controller.update(curr_state, optimal_control, dt);
 
-    log->debug(fmtCurrentState(curr_state));
+    log->debug(fmt_current_state(curr_state));
   }
 
   // Example of calculating cost with Q & R (quadratic) weight matrices
   Eigen::MatrixXd Q(4, 4);
-  Q << 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0,
-      0.0,
-      0.1;  // Weights for state error
+  Q << 1.0, 0.0, 0.0, 0.0,  // r1
+      0.0, 1.0, 0.0, 0.0,   // r2
+      0.0, 0.0, 0.5, 0.0,   // r3
+      0.0, 0.0, 0.0, 0.1;   // r4 - weights for state error
 
   Eigen::MatrixXd R(2, 2);
-  R << 0.1, 0.0, 0.0, 0.1;  // Weights for control effort
+  R << 0.1, 0.0,  // r1
+      0.0, 0.1;   // r2 - weights for control effort
 
   const Eigen::VectorXd state_error(4);
   const Eigen::VectorXd control_input(2);
@@ -120,7 +140,8 @@ int main(int argc, const char ** argv)
   const double cost =
       controller.calculate_cost_matrix(state_error, control_input, Q, R);
 
-  log->debug(fmtCost(cost));
+  log->debug(fmt_cost(cost));
+  log->info("Simulation Finished."s);
 
   return EXIT_SUCCESS;
 }

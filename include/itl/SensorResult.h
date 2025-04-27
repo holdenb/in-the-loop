@@ -3,6 +3,11 @@
 namespace itl
 {
 
+/**
+ * @class SensorResult
+ * @brief
+ *
+ */
 struct SensorResult
 {
 };
